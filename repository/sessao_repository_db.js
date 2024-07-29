@@ -1,5 +1,4 @@
 const { Client } = require('pg');
-
 const conexao = {
     user: "postgres",
     password: "12345",
@@ -8,55 +7,87 @@ const conexao = {
     database: "cinema_db"
 };
 
-// Função para listar todas as sessões
 async function listar() {
     const cliente = new Client(conexao);
     await cliente.connect();
-    const result = await cliente.query("SELECT * FROM sessao");
+    const result = await cliente.query(`
+        SELECT sessoao.id, sessao.filme_id, filme.titulo, sessao.horario, sessao.sala
+        FROM sessoao
+        JOIN filmes ON sessao.filme_id = filmes.id
+    `);
+    const listaSessoes = result.rows;   
     await cliente.end();
-    return result.rows;
+    return listaSessoes;
 }
 
-// Função para inserir uma nova sessão
 async function inserir(sessao) {
     const cliente = new Client(conexao);
     await cliente.connect();
-    const sql = "INSERT INTO sessao(filme_id, horario, sala) VALUES ($1, $2, $3) RETURNING *";
+    const sql = "INSERT INTO sessao (filme_id, horario, sala) VALUES ($1, $2, $3) RETURNING id, filme_id, horario, sala";
     const values = [sessao.filme_id, sessao.horario, sessao.sala];
     const result = await cliente.query(sql, values);
+    const sessaoInserida = result.rows[0];
+    
+    // Adiciona o título do filme no resultado retornado
+    const filmeResult = await cliente.query("SELECT titulo FROM filme WHERE id = $1", [sessaoInserida.filme_id]);
+    sessaoInserida.titulo = filmeResult.rows[0].titulo;
+
     await cliente.end();
-    return result.rows[0];
+    return sessaoInserida;
 }
 
-// Função para buscar uma sessão por ID
 async function buscarPorId(id) {
     const cliente = new Client(conexao);
     await cliente.connect();
-    const sql = "SELECT * FROM sessao WHERE id=$1";
-    const result = await cliente.query(sql, [id]);
-    await cliente.end();
-    return result.rows[0];
-}
-
-// Função para atualizar uma sessão
-async function atualizar(id, sessao) {
-    const cliente = new Client(conexao);
-    await cliente.connect();
-    const sql = 'UPDATE sessao SET filme_id=$1, horario=$2, sala=$3 WHERE id=$4 RETURNING *';
-    const values = [sessao.filme_id, sessao.horario, sessao.sala, id];
+    const sql = `
+        SELECT sessao.id, sessao.filme_id, filmes.titulo, sessao.horario, sessao.sala
+        FROM sessao
+        JOIN filmes ON sessao.filme_id = filmes.id
+        WHERE sessao.id = $1
+    `;
+    const values = [id];
     const result = await cliente.query(sql, values);
+    const sessaoEncontrada = result.rows[0];
     await cliente.end();
-    return result.rows[0];
+    return sessaoEncontrada;
 }
 
-// Função para deletar uma sessão
-async function deletar(id) {
+async function atualizar(id, sessao) {
+    const sql = 'UPDATE sessao SET filme_id=$1, horario=$2, sala=$3 WHERE id=$4 RETURNING id, filme_id, horario, sala';
+    const values = [sessao.filme_id, sessao.horario, sessao.sala, id];
+
     const cliente = new Client(conexao);
     await cliente.connect();
-    const sql = 'DELETE FROM sessao WHERE id=$1 RETURNING *';
-    const result = await cliente.query(sql, [id]);
+    const result = await cliente.query(sql, values);
+    const sessaoAtualizada = result.rows[0];
+
+    // Adiciona o título do filme no resultado retornado
+    if (sessaoAtualizada) {
+        const filmeResult = await cliente.query("SELECT titulo FROM filme WHERE id = $1", [sessaoAtualizada.filme_id]);
+        sessaoAtualizada.titulo = filmeResult.rows[0].titulo;
+    }
+
     await cliente.end();
-    return result.rows[0];
+    return sessaoAtualizada;
+}
+
+async function deletar(id) {
+    const sql = 'DELETE FROM sessao WHERE id=$1 RETURNING id, filme_id, horario, sala';
+    const values = [id];
+
+    const cliente = new Client(conexao);
+    await cliente.connect();
+    const result = await cliente.query(sql, values);
+    const sessaoDeletada = result.rows[0];
+
+    // Adiciona o título do filme no resultado retornado
+    if (sessaoDeletada) {
+        const filmeResult = await cliente.query("SELECT titulo FROM filme WHERE id = $1", [sessaoDeletada.filme_id]);
+        sessaoDeletada.titulo = filmeResult.rows[0].titulo;
+    }
+
+    await cliente.end();
+    return sessaoDeletada;
 }
 
 module.exports = {

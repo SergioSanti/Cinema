@@ -2,36 +2,36 @@ const sessaoService = require('../service/sessao_service');
 
 async function listar(req, res) {
     try {
-        const sessoes = await sessaoService.listarSessoes();
-        res.json(sessoes);
+        res.json(await sessaoService.listar());
     } catch (err) {
         res.status(err.id).json(err);
     }
 }
 
 async function inserir(req, res) {
-    const sessao = req.body;
+    let sessao = req.body;
+    
     try {
         const sessaoInserida = await sessaoService.inserir(sessao);
         res.status(201).json(sessaoInserida);
     } catch (err) {
         res.status(err.id).json(err);
-    }
+    }    
 }
 
 async function buscarPorId(req, res) {
     const id = +req.params.id;
     try {
-        const sessao = await sessaoService.buscarPorId(id);
-        res.json(sessao);
+        const sessaoComId = await sessaoService.buscarPorId(id);
+        res.json(sessaoComId);
     } catch (err) {
         res.status(err.id).json(err);
     }
 }
 
 async function atualizar(req, res) {
+    let sessao = req.body;
     const id = +req.params.id;
-    const sessao = req.body;
     try {
         const sessaoAtualizada = await sessaoService.atualizar(id, sessao);
         res.json(sessaoAtualizada);
